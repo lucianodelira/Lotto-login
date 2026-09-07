@@ -719,15 +719,26 @@ async function fazerRegistro() {
   }
 
   btn.disabled = true;
-  btn.textContent = 'Enviando código...';
+  btn.textContent = 'Criando conta...';
 
   try {
     const r = await apiAuth('registrar', { nome, email, senha });
+    
     if (r.sucesso) {
-      _emailPendente = email;
-      document.getElementById('email-confirmacao').textContent = email;
-      mostrarAuth('confirmar');
-      mostrarSucessoAuth(r.mensagem || 'Código enviado para seu e-mail!');
+      if (r.precisaConfirmar) {
+        // Precisa digitar o código
+        _emailPendente = email;
+        document.getElementById('email-confirmacao').textContent = email;
+        mostrarAuth('confirmar');
+        mostrarSucessoAuth(r.mensagem || 'Código enviado!');
+      } else {
+        // Conta liberada direto (cota de e-mail estourada)
+        mostrarSucessoAuth(r.mensagem || 'Conta criada! Faça login.');
+        setTimeout(() => {
+          mostrarAuth('login');
+          document.getElementById('login-email').value = email;
+        }, 1800);
+      }
     } else {
       mostrarErroAuth(r.erro || 'Erro ao criar conta');
     }
