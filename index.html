@@ -184,7 +184,7 @@
     padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
   }
 
-  /* ===== TELA DE LOGIN / REGISTRO ===== */
+  /* ===== AUTH ===== */
   #auth-screen {
     min-height: 100vh;
     display: flex;
@@ -202,10 +202,7 @@
     padding: 32px 28px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
   }
-  .auth-logo {
-    text-align: center;
-    margin-bottom: 28px;
-  }
+  .auth-logo { text-align: center; margin-bottom: 28px; }
   .auth-logo .logo { font-size: 13px; letter-spacing: 4px; }
   .auth-logo h1 { font-size: 26px; margin-top: 6px; }
   .auth-tabs {
@@ -319,7 +316,7 @@
       <h1>Lotto Trivo</h1>
     </div>
 
-    <div class="auth-tabs">
+    <div class="auth-tabs" id="auth-tabs">
       <button class="auth-tab active" onclick="mostrarAuth('login')">Entrar</button>
       <button class="auth-tab" onclick="mostrarAuth('registro')">Criar Conta</button>
     </div>
@@ -356,10 +353,26 @@
       </div>
       <button class="auth-btn" id="btn-registro" onclick="fazerRegistro()">Criar Conta</button>
     </div>
+
+    <!-- CONFIRMAÇÃO DE CÓDIGO -->
+    <div id="form-confirmar" class="auth-form">
+      <p style="text-align:center; color:#94a3b8; font-size:14px; margin-bottom:18px; line-height:1.5;">
+        Enviamos um código de 6 dígitos para<br>
+        <strong id="email-confirmacao" style="color:#e2e8f0;"></strong>
+      </p>
+      <div class="form-group">
+        <label>Código de confirmação</label>
+        <input type="text" id="codigo-confirmacao" placeholder="000000" maxlength="6"
+               style="text-align:center; letter-spacing:8px; font-size:22px; font-weight:700;">
+      </div>
+      <button class="auth-btn" id="btn-confirmar" onclick="confirmarCodigo()">Confirmar Conta</button>
+      <button class="auth-btn" style="background:#1e293b; margin-top:10px; box-shadow:none;"
+              onclick="mostrarAuth('registro')">Voltar</button>
+    </div>
   </div>
 </div>
 
-<!-- ==================== APP PRINCIPAL (só aparece depois do login) ==================== -->
+<!-- ==================== APP PRINCIPAL ==================== -->
 <div id="app-principal" style="display:none;">
   <div class="app">
     <div class="header">
@@ -620,23 +633,30 @@ let tipoPos1Atual = 'milhar';
 let cacheSugestao = [];
 let cachePalpiteGrupos = [];
 let cachePalpitao = [];
+let _emailPendente = '';
+
 const HORARIOS_VERIFICAR = [
   '01:32','05:32','07:32','09:32','11:32','13:32','15:32','18:32','20:32','22:32'
 ];
 
-/* ===== AUTENTICAÇÃO ===== */
+/* ===== AUTENTICAÇÃO COM CONFIRMAÇÃO ===== */
 function mostrarAuth(tipo) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
   document.getElementById('auth-error').style.display = 'none';
   document.getElementById('auth-success').style.display = 'none';
 
+  const tabs = document.getElementById('auth-tabs');
+  if (tabs) tabs.style.display = (tipo === 'confirmar') ? 'none' : 'grid';
+
   if (tipo === 'login') {
     document.querySelectorAll('.auth-tab')[0].classList.add('active');
     document.getElementById('form-login').classList.add('active');
-  } else {
+  } else if (tipo === 'registro') {
     document.querySelectorAll('.auth-tab')[1].classList.add('active');
     document.getElementById('form-registro').classList.add('active');
+  } else if (tipo === 'confirmar') {
+    document.getElementById('form-confirmar').classList.add('active');
   }
 }
 
@@ -699,16 +719,15 @@ async function fazerRegistro() {
   }
 
   btn.disabled = true;
-  btn.textContent = 'Criando conta...';
+  btn.textContent = 'Enviando código...';
 
   try {
     const r = await apiAuth('registrar', { nome, email, senha });
     if (r.sucesso) {
-      mostrarSucessoAuth('Conta criada! Agora faça login.');
-      setTimeout(() => {
-        mostrarAuth('login');
-        document.getElementById('login-email').value = email;
-      }, 1500);
+      _emailPendente = email;
+      document.getElementById('email-confirmacao').textContent = email;
+      mostrarAuth('confirmar');
+      mostrarSucessoAuth(r.mensagem || 'Código enviado para seu e-mail!');
     } else {
       mostrarErroAuth(r.erro || 'Erro ao criar conta');
     }
@@ -720,18 +739,50 @@ async function fazerRegistro() {
   }
 }
 
+async function confirmarCodigo() {
+  const email = _emailPendente || document.getElementById('reg-email').value.trim();
+  const codigo = document.getElementById('codigo-confirmacao').value.trim();
+  const btn = document.getElementById('btn-confirmar');
+
+  if (!codigo || codigo.length !== 6) {
+    mostrarErroAuth('Digite o código de 6 dígitos');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Confirmando...';
+
+  try {
+    const r = await apiAuth('confirmar', { email, codigo });
+    if (r.sucesso) {
+      mostrarSucessoAuth('Conta confirmada! Entrando...');
+      setTimeout(() => {
+        localStorage.setItem('lt_user', JSON.stringify(r.usuario));
+        liberarApp(r.usuario);
+      }, 1200);
+    } else {
+      mostrarErroAuth(r.erro || 'Código inválido');
+    }
+  } catch (e) {
+    mostrarErroAuth(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirmar Conta';
+  }
+}
+
 function fazerLogout() {
   localStorage.removeItem('lt_user');
   document.getElementById('app-principal').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('login-senha').value = '';
+  mostrarAuth('login');
 }
 
 function liberarApp(usuario) {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-principal').style.display = 'block';
   document.getElementById('nome-usuario').textContent = usuario.nome || usuario.email;
-  // Inicializa o app
   status();
   carregar();
   carregarHomeCompleto();
@@ -757,8 +808,7 @@ async function apiAuth(action, params) {
   const res = await fetch(API + '?' + qs, { signal: controller.signal, cache: 'no-store' });
   clearTimeout(timeout);
   if (!res.ok) throw new Error('Erro HTTP ' + res.status);
-  const json = await res.json();
-  return json;
+  return await res.json();
 }
 
 /* ===== API PRINCIPAL ===== */
@@ -1485,7 +1535,7 @@ function checkSalvar5MinDepois() {
 setInterval(checkSchedule, 20000);
 setInterval(checkSalvar5MinDepois, 20000);
 
-// Inicialização: verifica se já está logado
+// Inicialização
 verificarSessao();
 </script>
 </body>
