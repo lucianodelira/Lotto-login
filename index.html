@@ -184,6 +184,72 @@
     padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
   }
 
+  /* ===== BARRA DE HORÁRIOS ===== */
+  .horarios-bar {
+    background: linear-gradient(180deg, #0f172a 0%, #121820 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px 14px 14px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  }
+  .horarios-bar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .horarios-bar-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .horarios-bar-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .horarios-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .horarios-scroll::-webkit-scrollbar { display: none; }
+  .horario-chip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1.5px solid #334155;
+    background: #1e293b;
+    color: #94a3b8;
+  }
+  .horario-chip:hover { background: #334155; color: #e2e8f0; }
+  .horario-chip.ok {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(16,185,129,0.35);
+  }
+  .horario-chip.ok .check {
+    font-size: 11px;
+  }
+  .horario-chip.atual {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+  }
+  .horario-chip.pendente {
+    opacity: 0.55;
+  }
+
   /* ===== AUTH ===== */
   #auth-screen {
     min-height: 100vh;
@@ -385,6 +451,19 @@
       <button class="btn-logout" onclick="fazerLogout()">Sair</button>
     </div>
 
+    <!-- ===== BARRA DE HORÁRIOS DOS RESULTADOS ===== -->
+    <div class="horarios-bar" id="horarios-bar">
+      <div class="horarios-bar-header">
+        <div>
+          <div class="horarios-bar-title">Resultados de hoje</div>
+          <div class="horarios-bar-sub">Clique em um horário para visualizá-lo</div>
+        </div>
+      </div>
+      <div class="horarios-scroll" id="horarios-scroll">
+        <!-- preenchido via JS -->
+      </div>
+    </div>
+
     <div class="status" id="status">
       <div class="dot"></div>
       <div>Carregando sistema...</div>
@@ -467,9 +546,9 @@
       <div class="section">
         <div class="section-header">
           <div class="section-title">🕘 Histórico Completo de Previsões</div>
-          <div class="section-badge">Todos os horários</div>
+          <div class="section-badge">Últimas 50</div>
         </div>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;" onclick="carregarHomeCompleto()">🔄 Atualizar tudo</button>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;" onclick="carregarUltimas50Previsoes('lista-historico-home')">🔄 Atualizar tudo</button>
         <div id="lista-historico-home"><div class="empty">Carregando histórico...</div></div>
       </div>
     </div>
@@ -571,9 +650,9 @@
       </div>
       <div class="section">
         <div class="section-header">
-          <div class="section-title">🕘 Últimas 10 previsões</div>
+          <div class="section-title">🕘 Últimas 50 previsões</div>
         </div>
-        <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;" onclick="carregarHistoricoPrevisoes()">🔄 Atualizar histórico</button>
+        <button class="btn btn-secondary" style="width:100%;margin-bottom:12px;" onclick="carregarUltimas50Previsoes()">🔄 Atualizar histórico</button>
         <div id="lista-historico-prev"><div class="empty">Salve uma previsão antes do sorteio e verifique depois.</div></div>
       </div>
     </div>
@@ -625,7 +704,10 @@
 </div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbyoE0w5IJ7wuX53rvHIdwxLbcICtUIffx1ib_W6CXC_VRD-zjQOLWxcFVLV1Yoqe--ZOQ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyQpGrbaq8q8xUB6n2qT6tabyg7cJ6zdw3l1V5yb1ftKWy2Hl8s1YdCsYZ0ARu_kk4KHg/exec';
+// API exclusiva para Palpitão, 1ª Posição e Grupos
+const API_EXTRA = 'https://script.google.com/macros/s/AKfycbwB1IMATuzJerRoWu9QVX5fKLApC8_uW_XxCdOp_UIsr5TZv8o9rvGs1ZxXlflVmfCDGw/exec';
+
 let cacheAtrasados = null;
 let tipoAtrasadoAtual = 'milhar';
 let cachePos1 = null;
@@ -634,6 +716,11 @@ let cacheSugestao = [];
 let cachePalpiteGrupos = [];
 let cachePalpitao = [];
 let _emailPendente = '';
+let cacheResultadosHoje = {};
+
+const HORARIOS_RESULTADOS = [
+  '01:30','05:30','07:30','09:30','11:30','13:30','15:30','18:30','20:30','22:30'
+];
 
 const HORARIOS_VERIFICAR = [
   '01:32','05:32','07:32','09:32','11:32','13:32','15:32','18:32','20:32','22:32'
@@ -726,13 +813,11 @@ async function fazerRegistro() {
     
     if (r.sucesso) {
       if (r.precisaConfirmar) {
-        // Precisa digitar o código
         _emailPendente = email;
         document.getElementById('email-confirmacao').textContent = email;
         mostrarAuth('confirmar');
         mostrarSucessoAuth(r.mensagem || 'Código enviado!');
       } else {
-        // Conta liberada direto (cota de e-mail estourada)
         mostrarSucessoAuth(r.mensagem || 'Conta criada! Faça login.');
         setTimeout(() => {
           mostrarAuth('login');
@@ -797,6 +882,7 @@ function liberarApp(usuario) {
   status();
   carregar();
   carregarHomeCompleto();
+  atualizarBarraHorarios();
 }
 
 function verificarSessao() {
@@ -842,6 +928,26 @@ async function api(action, timeoutMs = 45000) {
   }
 }
 
+/* ===== API EXTRA (Palpitão / 1ª Posição / Grupos) ===== */
+async function apiExtra(action, timeoutMs = 45000) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(API_EXTRA + '?action=' + encodeURIComponent(action), {
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error('Erro HTTP ' + res.status);
+    const json = await res.json();
+    if (json.sucesso === false) throw new Error(json.erro || 'Erro na API Extra');
+    return json;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Tempo esgotado (timeout)');
+    throw e;
+  }
+}
+
 function setStatus(html, isError = false) {
   const el = document.getElementById('status');
   if (!el) return;
@@ -857,7 +963,7 @@ function trocarPainel(id, btn) {
   if (id === 'painel-atrasados') carregarAtrasados();
   if (id === 'painel-pos1') carregarAtrasadosPos1();
   if (id === 'painel-resultados') carregar();
-  if (id === 'painel-acertos') carregarHistoricoPrevisoes();
+  if (id === 'painel-acertos') carregarUltimas50Previsoes();
   if (id === 'painel-palpite-grupos') carregarPalpiteGrupos();
   if (id === 'painel-palpitao') carregarPalpitao();
   if (id === 'painel-inicio') carregarHomeCompleto();
@@ -876,6 +982,84 @@ function formatarData(data) {
     }
   } catch(e){}
   return String(data).substring(0, 16);
+}
+
+/* ===== BARRA DE HORÁRIOS ===== */
+function normalizarHora(horaStr) {
+  if (!horaStr) return '';
+  const m = String(horaStr).match(/(\d{1,2})[:hH]?(\d{2})/);
+  if (!m) return '';
+  return String(m[1]).padStart(2,'0') + ':' + m[2];
+}
+
+async function atualizarBarraHorarios() {
+  const scroll = document.getElementById('horarios-scroll');
+  if (!scroll) return;
+
+  try {
+    const r = await api('resultados');
+    const hoje = new Date().toISOString().slice(0,10);
+    cacheResultadosHoje = {};
+
+    (r.resultados || []).forEach(concurso => {
+      let dataStr = concurso.data || '';
+      if (dataStr.includes('/')) {
+        const [d,m,a] = dataStr.split('/');
+        dataStr = `${a}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+      }
+      if (dataStr.startsWith(hoje) || dataStr === hoje) {
+        const h = normalizarHora(concurso.hora);
+        if (h) cacheResultadosHoje[h] = true;
+      }
+    });
+
+    const agora = new Date();
+    const hmAgora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
+
+    scroll.innerHTML = '';
+    HORARIOS_RESULTADOS.forEach(hora => {
+      const chip = document.createElement('div');
+      chip.className = 'horario-chip';
+      const temResultado = !!cacheResultadosHoje[hora];
+      const jaPassou = hmAgora >= hora;
+
+      if (temResultado) {
+        chip.classList.add('ok');
+        chip.innerHTML = `<span class="check">✓</span> ${hora}`;
+      } else if (jaPassou) {
+        chip.classList.add('pendente');
+        chip.textContent = hora;
+      } else {
+        chip.textContent = hora;
+      }
+
+      if (!temResultado && !jaPassou) {
+        const idx = HORARIOS_RESULTADOS.indexOf(hora);
+        const prev = idx > 0 ? HORARIOS_RESULTADOS[idx-1] : null;
+        if (!prev || cacheResultadosHoje[prev] || hmAgora >= prev) {
+          chip.classList.add('atual');
+        }
+      }
+
+      chip.onclick = () => {
+        trocarPainel('painel-resultados', document.querySelector('[data-panel="painel-resultados"]'));
+        setTimeout(() => {
+          const cards = document.querySelectorAll('#resultados .draw-header');
+          cards.forEach(c => {
+            if (c.textContent.includes(hora) || c.textContent.includes(hora.replace(':', 'h'))) {
+              c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              c.style.outline = '2px solid #22d3ee';
+              setTimeout(() => c.style.outline = '', 2500);
+            }
+          });
+        }, 300);
+      };
+
+      scroll.appendChild(chip);
+    });
+  } catch (e) {
+    console.warn('Erro ao atualizar barra de horários:', e.message);
+  }
 }
 
 /* ===== COPIAR ===== */
@@ -938,6 +1122,7 @@ async function coletar() {
     setStatus(`Coleta concluída · ${r.gravados || r.importados || 0} registros`);
     carregar();
     carregarHomeCompleto();
+    atualizarBarraHorarios();
   } catch (e) {
     setStatus('Erro na coleta: ' + e.message, true);
   }
@@ -966,6 +1151,7 @@ async function carregar() {
         div.appendChild(card);
       });
     });
+    atualizarBarraHorarios();
   } catch (e) {
     setStatus('Erro ao carregar resultados: ' + e.message, true);
   }
@@ -1041,13 +1227,13 @@ function renderAtrasados(tipo) {
   document.getElementById('btn-copiar-atrasados').style.display = 'inline-block';
 }
 
-/* ===== 1ª POSIÇÃO ===== */
+/* ===== 1ª POSIÇÃO (usa API_EXTRA) ===== */
 async function carregarAtrasadosPos1() {
   const div = document.getElementById('lista-pos1');
   div.innerHTML = '<div class="empty">Calculando atrasados da 1ª posição...</div>';
   setStatus('Analisando apenas a 1ª posição...');
   try {
-    const r = await api('atrasados_pos1');
+    const r = await apiExtra('atrasados_pos1');
     cachePos1 = {
       milhar: r.milhar || [],
       centena: r.centena || [],
@@ -1276,16 +1462,45 @@ function renderDonut(taxas) {
   `).join('');
 }
 
+/* ===== Últimas 50 previsões ===== */
+async function carregarUltimas50Previsoes(containerId = 'lista-historico-prev') {
+  const box = document.getElementById(containerId);
+  if (box) box.innerHTML = '<div class="empty">Carregando últimas 50 previsões...</div>';
+
+  try {
+    const r = await api('historico_previsoes');
+    
+    const itens = (r.itens || []).slice(0, 50);
+
+    if (containerId === 'lista-historico-prev') {
+      const chart = document.getElementById('chart-taxas');
+      if (chart) chart.innerHTML = renderBarrasTaxas(r.taxas || {});
+      
+      const badge = document.getElementById('badge-taxas');
+      if (badge) badge.textContent = (r.fechados || 0) + ' fechadas';
+    }
+
+    renderHistoricoItens(itens, containerId);
+    
+    setStatus(`Mostrando as últimas ${itens.length} previsões salvas`);
+  } catch (e) {
+    if (box) box.innerHTML = `<div class="empty">Erro ao carregar histórico: ${e.message}</div>`;
+    setStatus('Erro ao carregar histórico de previsões', true);
+  }
+}
+
 async function carregarHomeCompleto() {
   try {
     const r = await api('historico_previsoes');
     renderDonut(r.taxas || {});
-    renderHistoricoItens(r.itens || [], 'lista-historico-home');
+    const itens = (r.itens || []).slice(0, 50);
+    renderHistoricoItens(itens, 'lista-historico-home');
   } catch (e) {
     document.getElementById('lista-historico-home').innerHTML = `<div class="empty">Erro histórico: ${e.message}</div>`;
   }
   renderHomePos1();
   renderHomePalpitao();
+  atualizarBarraHorarios();
 }
 
 async function renderHomePos1() {
@@ -1293,7 +1508,7 @@ async function renderHomePos1() {
   if (!box) return;
   try {
     if (!cachePos1) {
-      const r = await api('atrasados_pos1');
+      const r = await apiExtra('atrasados_pos1');
       cachePos1 = { milhar: r.milhar || [], centena: r.centena || [], dezena: r.dezena || [], grupo: r.grupo || [] };
     }
     const lista = (cachePos1.milhar || []).slice(0, 5);
@@ -1314,7 +1529,7 @@ async function renderHomePalpitao() {
   if (!box) return;
   try {
     if (!cachePalpitao.length) {
-      const r = await api('palpitao');
+      const r = await apiExtra('palpitao');
       cachePalpitao = r.dezenas || [];
     }
     const lista = cachePalpitao.slice(0, 8);
@@ -1331,18 +1546,7 @@ async function renderHomePalpitao() {
 }
 
 async function carregarHistoricoPrevisoes() {
-  const box = document.getElementById('lista-historico-prev');
-  const chart = document.getElementById('chart-taxas');
-  if (box) box.innerHTML = '<div class="empty">Carregando histórico...</div>';
-  try {
-    const r = await api('historico_previsoes');
-    if (chart) chart.innerHTML = renderBarrasTaxas(r.taxas || {});
-    const badge = document.getElementById('badge-taxas');
-    if (badge) badge.textContent = (r.fechados || 0) + ' fechadas';
-    renderHistoricoItens(r.itens || [], 'lista-historico-prev');
-  } catch (e) {
-    if (box) box.innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
-  }
+  return carregarUltimas50Previsoes('lista-historico-prev');
 }
 
 async function salvarPrevisaoAgora() {
@@ -1350,7 +1554,7 @@ async function salvarPrevisaoAgora() {
   try {
     const r = await api('salvar_previsao');
     setStatus(r.sucesso ? ('Previsão salva: ' + (r.idPrev || 'ok')) : 'Falha ao salvar');
-    carregarHistoricoPrevisoes();
+    carregarUltimas50Previsoes();
     carregarHomeCompleto();
   } catch (e) {
     setStatus('Erro ao salvar: ' + e.message, true);
@@ -1392,21 +1596,22 @@ async function verificarAcertos() {
     setStatus(total > 0
       ? `Acertos: M${s.milhar||0} C${s.centena||0} D${s.dezena||0} G${s.grupo||0} · Sug ${s.sugestao||0}/${s.sugestao_centena||0}`
       : 'Nenhum acerto neste sorteio');
-    carregarHistoricoPrevisoes();
+    carregarUltimas50Previsoes();
     carregarHomeCompleto();
+    atualizarBarraHorarios();
   } catch (e) {
     box.innerHTML = `<div class="empty">Erro: ${e.message}</div>`;
     setStatus('Erro na verificação: ' + e.message, true);
   }
 }
 
-/* ===== GRUPOS ===== */
+/* ===== GRUPOS (usa API_EXTRA) ===== */
 async function carregarPalpiteGrupos() {
   const box = document.getElementById('lista-palpite-grupos');
   box.innerHTML = '<div class="empty">Analisando grupos atrasados...</div>';
   setStatus('Gerando palpite por grupos...');
   try {
-    const r = await api('palpite_grupos');
+    const r = await apiExtra('palpite_grupos');
     if (!r.grupos || !r.grupos.length) {
       box.innerHTML = '<div class="empty">Nenhum dado disponível.</div>';
       return;
@@ -1435,13 +1640,13 @@ async function carregarPalpiteGrupos() {
   }
 }
 
-/* ===== PALPITÃO ===== */
+/* ===== PALPITÃO (usa API_EXTRA) ===== */
 async function carregarPalpitao() {
   const box = document.getElementById('box-palpitao');
   box.innerHTML = '<div class="empty">Analisando dezenas...</div>';
   setStatus('Gerando Análise Palpitão...');
   try {
-    const r = await api('palpitao');
+    const r = await apiExtra('palpitao');
     if (!r.dezenas || !r.dezenas.length) {
       box.innerHTML = '<div class="empty">Nenhum dado disponível.</div>';
       return;
@@ -1545,6 +1750,7 @@ function checkSalvar5MinDepois() {
 }
 setInterval(checkSchedule, 20000);
 setInterval(checkSalvar5MinDepois, 20000);
+setInterval(atualizarBarraHorarios, 60000);
 
 // Inicialização
 verificarSessao();
