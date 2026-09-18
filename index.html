@@ -902,7 +902,7 @@ async function apiAuth(action, params) {
   const qs = new URLSearchParams({ action, ...params }).toString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
-  const res = await fetch(API + '?' + qs, { signal: controller.signal, cache: 'no-store' });
+  const res = await fetch('https://script.google.com/macros/s/AKfycbyoE0w5IJ7wuX53rvHIdwxLbcICtUIffx1ib_W6CXC_VRD-zjQOLWxcFVLV1Yoqe--ZOQ/exec?' + qs, { signal: controller.signal, cache: 'no-store' });
   clearTimeout(timeout);
   if (!res.ok) throw new Error('Erro HTTP ' + res.status);
   return await res.json();
