@@ -776,11 +776,20 @@ async function fazerLogin() {
 
   try {
     const r = await apiAuth('login', { email, senha });
+    
     if (r.sucesso) {
       localStorage.setItem('lt_user', JSON.stringify(r.usuario));
       liberarApp(r.usuario);
     } else {
-      mostrarErroAuth(r.erro || 'Falha no login');
+      // Se a conta ainda não foi confirmada → mostra a tela de código
+      if (r.erro && r.erro.toLowerCase().includes('não confirmada')) {
+        _emailPendente = email;
+        document.getElementById('email-confirmacao').textContent = email;
+        mostrarAuth('confirmar');
+        mostrarSucessoAuth('Conta pendente. Digite o código que enviamos para o seu e-mail.');
+      } else {
+        mostrarErroAuth(r.erro || 'Falha no login');
+      }
     }
   } catch (e) {
     mostrarErroAuth(e.message);
@@ -816,8 +825,9 @@ async function fazerRegistro() {
         _emailPendente = email;
         document.getElementById('email-confirmacao').textContent = email;
         mostrarAuth('confirmar');
-        mostrarSucessoAuth(r.mensagem || 'Código enviado!');
+        mostrarSucessoAuth(r.mensagem || 'Código enviado! Digite o código para confirmar.');
       } else {
+        // Conta criada sem precisar de código
         mostrarSucessoAuth(r.mensagem || 'Conta criada! Faça login.');
         setTimeout(() => {
           mostrarAuth('login');
@@ -825,16 +835,32 @@ async function fazerRegistro() {
         }, 1800);
       }
     } else {
-      mostrarErroAuth(r.erro || 'Erro ao criar conta');
+      // Se já existe e está pendente, também manda para a tela de código
+      if (r.erro && (r.erro.toLowerCase().includes('já está cadastrado') || r.erro.toLowerCase().includes('pendente'))) {
+        _emailPendente = email;
+        document.getElementById('email-confirmacao').textContent = email;
+        mostrarAuth('confirmar');
+        mostrarSucessoAuth('Este e-mail já está aguardando confirmação. Digite o código enviado.');
+      } else {
+        mostrarErroAuth(r.erro || 'Erro ao criar conta');
+      }
     }
   } catch (e) {
-    mostrarErroAuth(e.message);
+    // Timeout ou erro de rede → se já tentou antes, oferece a tela de código
+    if (e.message && e.message.toLowerCase().includes('aborted')) {
+      _emailPendente = email;
+      document.getElementById('email-confirmacao').textContent = email;
+      mostrarAuth('confirmar');
+      mostrarSucessoAuth('O código pode ter sido enviado. Digite o código que chegou no e-mail.');
+    } else {
+      mostrarErroAuth(e.message);
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Criar Conta';
   }
 }
-
+  
 async function confirmarCodigo() {
   const email = _emailPendente || document.getElementById('reg-email').value.trim();
   const codigo = document.getElementById('codigo-confirmacao').value.trim();
