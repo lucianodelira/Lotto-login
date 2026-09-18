@@ -1755,5 +1755,63 @@ setInterval(atualizarBarraHorarios, 60000);
 // Inicialização
 verificarSessao();
 </script>
+
+
+
+
+  <script>
+(function() {
+  // Cria o botão flutuante
+  const botao = document.createElement('button');
+  botao.id = 'btn-jogar-palpite';
+  botao.innerHTML = 'JOGAR PALPITE';
+  botao.title = 'Jogar Palpite Agora';
+
+  // Estilo do botão (chamativo + flutuante no canto inferior direito)
+  botao.style.cssText = `
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 999999;
+    background: linear-gradient(135deg, #ff0000, #ff4d4d, #ff1a1a);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 16px 28px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 6px 20px rgba(0,0,0,0.4);
+    text-transform: uppercase;
+    animation: pulseJogar 1.6s infinite;
+    transition: all 0.25s ease;
+    font-family: Arial, sans-serif;
+  `;
+
+  // Animação de pulse
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes pulseJogar {
+      0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.8); }
+      70% { box-shadow: 0 0 0 18px rgba(255, 0, 0, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
+    #btn-jogar-palpite:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 30px rgba(255, 0, 0, 1), 0 8px 25px rgba(0,0,0,0.5);
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Ação do botão
+  botao.onclick = function() {
+    window.open('https://app.bancabrasileira.com.br/pr/wLMKnWDU', '_blank');
+  };
+
+  // Adiciona o botão na página
+  document.body.appendChild(botao);
+})();
+</script>
 </body>
 </html>
