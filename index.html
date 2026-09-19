@@ -434,7 +434,22 @@
       <button class="auth-btn" id="btn-confirmar" onclick="confirmarCodigo()">Confirmar Conta</button>
       <button class="auth-btn" style="background:#1e293b; margin-top:10px; box-shadow:none;"
               onclick="mostrarAuth('registro')">Voltar</button>
+
+
+
+<button class="auth-btn" id="btn-reenviar" 
+        style="background:#1e293b; margin-top:10px; box-shadow:none;"
+        onclick="reenviarCodigo()">
+  Reenviar código
+</button>
+
+
+      
     </div>
+
+
+
+    
   </div>
 </div>
 
@@ -1780,6 +1795,48 @@ setInterval(atualizarBarraHorarios, 60000);
 
 // Inicialização
 verificarSessao();
+
+
+
+
+
+
+
+
+
+
+
+
+
+async function reenviarCodigo() {
+  const email = _emailPendente || document.getElementById('email-confirmacao').textContent.trim();
+  const btn = document.getElementById('btn-reenviar');
+
+  if (!email) {
+    mostrarErroAuth('E-mail não encontrado. Volte e tente novamente.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Reenviando...';
+
+  try {
+    const r = await apiAuth('reenviar', { email });
+    
+    if (r.sucesso) {
+      mostrarSucessoAuth(r.mensagem || 'Novo código enviado para o seu e-mail!');
+    } else {
+      mostrarErroAuth(r.erro || 'Erro ao reenviar código');
+    }
+  } catch (e) {
+    mostrarErroAuth(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reenviar código';
+  }
+}
+
+  
 </script>
 
 
